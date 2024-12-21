@@ -21,4 +21,5 @@ add_executable(AdventOfCode2024
         Day14/main.cpp
         Day15/main.cpp
         Day16/main.cpp
+        Day17/main.cpp
 )
