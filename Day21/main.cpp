@@ -39,6 +39,15 @@ std::unordered_map<char, i_pair> directionalMap{
     {'>', {1, 2}}
 };
 
+std::vector idToChar = {'A', '<', 'v', '>', '^'};
+std::unordered_map<char, int> charToId{
+    {'A', 0},
+    {'<', 1},
+    {'v', 2},
+    {'>', 3},
+    {'^', 4}
+};
+
 bool isValidNumMove(const std::string& move, char start) {
     auto [startI, startJ] = numericMap[start];
     for (int i = 0; i < move.size(); i++) {
@@ -88,104 +97,90 @@ std::vector<std::string> move(char start, char end, std::unordered_map<char, i_p
     }
 
     if (di == 0) {
-        return {horizontal};
+        return {horizontal + "A"};
     }
     if (dj == 0) {
-        return {vertical};
+        return {vertical + "A"};
     }
 
-    return {horizontal + vertical, vertical + horizontal};
+    return {horizontal + vertical + "A", vertical + horizontal + "A"};
 }
 
-std::vector<std::string> getNumMoveString(std::string code) {
-    char prev = 'A';
-    std::vector<std::string> moves{""};
-    for (char c : code) {
-        auto nexts = move(prev, c, numericMap);
-        std::vector<std::string> newMoves;
-        for (std::string base : moves) {
-            for (std::string next : nexts) {
-                if (isValidNumMove(next, prev)) {
-                    newMoves.push_back(base + next + "A");
+std::vector<std::string> moveDir(char start, char end) {
+    std::vector<std::string> candidateMoves = move(start, end, directionalMap);
+    std::vector<std::string> validMoves;
+    for (std::string& move : candidateMoves) {
+        if (isValidDirMove(move, start)) {
+            validMoves.push_back(move);
+        }
+    }
+    return validMoves;
+}
+
+std::vector<std::string> moveNum(char start, char end) {
+    std::vector<std::string> candidateMoves = move(start, end, numericMap);
+    std::vector<std::string> validMoves;
+    for (std::string& move : candidateMoves) {
+        if (isValidNumMove(move, start)) {
+            validMoves.push_back(move);
+        }
+    }
+    return validMoves;
+}
+
+long long getFinalMoveStringLength2(std::string code, int numBots) {
+    long long dp[numBots][5][5] = {0};
+    //least # of moves to move from i to j and press j w/ k robots ahead
+
+    for (int j = 0; j < 5; j++) {
+        for (int k = 0; k < 5; k++) {
+            dp[0][j][k] = moveDir(idToChar[j], idToChar[k])[0].size();
+        }
+    }
+
+    for (int i = 1; i < numBots; i++) {
+        for (int j = 0; j < 5; j++) {
+            for (int k = 0; k < 5; k++) {
+                auto strings = moveDir(idToChar[j], idToChar[k]);
+                long long minLength = -1;
+                for (std::string& s : strings) {
+                    long long total = 0;
+                    char prev = 'A';
+                    for (char c : s) {
+                        total += dp[i - 1][charToId[prev]][charToId[c]];
+                        prev = c;
+                    }
+                    if (minLength == -1 || total < minLength) {
+                        minLength = total;
+                    }
                 }
+                dp[i][j][k] = minLength;
             }
         }
-        moves = newMoves;
-        prev = c;
     }
-    return moves;
+
+    char prevNum = 'A';
+    long long totalLength = 0;
+    for (char curNum : code) {
+        auto strings = moveNum(prevNum, curNum);
+        long long minLength = -1;
+        for (std::string& s : strings) {
+            long long total = 0;
+            char prev = 'A';
+            for (char c : s) {
+                total += dp[numBots - 1][charToId[prev]][charToId[c]];
+                prev = c;
+            }
+            if (minLength == -1 || total < minLength) {
+                minLength = total;
+            }
+        }
+        totalLength += minLength;
+        prevNum = curNum;
+    }
+    return totalLength;
 }
 
-std::vector<std::string> getDirMoveString(std::string dirs) {
-    char prev = 'A';
-    std::vector<std::string> moves{""};
-    for (char c : dirs) {
-        auto nexts = move(prev, c, directionalMap);
-        std::vector<std::string> newMoves;
-        for (std::string base : moves) {
-            for (std::string next : nexts) {
-                if (isValidDirMove(next, prev)) {
-                    newMoves.push_back(base + next + "A");
-                }
-            }
-        }
-        moves = newMoves;
-        prev = c;
-    }
-    return moves;
-}
-
-
-std::string getFinalMoveString(std::string code) {
-    std::vector<std::string> robotCommands1 = getNumMoveString(code);
-    //inputs that the first robot must enter (radioactive room)
-    std::vector<std::string> robotCommands2;
-    for (std::string s : robotCommands1) {
-        for (std::string next : getDirMoveString(s)) {
-            robotCommands2.push_back(next);
-        }
-    }
-    std::string minString(100, '.');
-    for (std::string s : robotCommands2) {
-        for (std::string next : getDirMoveString(s)) {
-            if (next.size() < minString.size()) {
-                minString = next;
-            }
-        }
-    }
-    return minString;
-}
-
-std::string getFinalMoveString2(std::string code) {
-    std::vector<std::string> robotCommands1 = getNumMoveString(code);
-    //inputs that the first robot must enter (radioactive room)
-
-    for (int i = 0; i < 2; i++) {
-        std::vector<std::string> nextCommands;
-        for (std::string s : robotCommands1) {
-            for (std::string next : getDirMoveString(s)) {
-                if (nextCommands.empty() || next.size() == nextCommands[0].size()) {
-                    nextCommands.push_back(next);
-                }
-
-                if (next.size() < nextCommands[0].size()) {
-                    nextCommands = {next};
-                }
-            }
-        }
-        robotCommands1 = nextCommands;
-    }
-
-    std::string minString;
-    for (std::string s : robotCommands1) {
-        for (std::string next : getDirMoveString(s)) {
-            if (minString.empty() || next.size() < minString.size()) {
-                minString = next;
-            }
-        }
-    }
-    return minString;
-}
 
 int getNumericPart(std::string code) {
     return std::stoi(code.substr(0, code.size() - 1));
@@ -200,9 +195,9 @@ void part1() {
         return;
     }
     std::string nextLine;
-    int total = 0;
+    long long total = 0;
     while (std::getline(inputFile, nextLine)) {
-        total += (getNumericPart(nextLine) * getFinalMoveString(nextLine).size());
+        total += (getNumericPart(nextLine) * getFinalMoveStringLength2(nextLine, 2));
     }
     std::cout << total;
 }
@@ -216,19 +211,15 @@ void part2() {
     }
 
     std::string nextLine;
-    int total = 0;
+    long long total = 0;
     while (std::getline(inputFile, nextLine)) {
-        total += (getNumericPart(nextLine) * getFinalMoveString2(nextLine).size());
+        total += (getNumericPart(nextLine) * getFinalMoveStringLength2(nextLine, 25));
     }
     std::cout << total;
 }
 
 
 int main() {
-    //std::cout << getFinalMoveString("379A").size() << std::endl;
-    //std::cout << getDirMoveString("^A<<^^A>>AvvvA") << " " << getDirMoveString(getDirMoveString("^A<<^^A>>AvvvA")).size() << std::endl;
-    //std::cout << getDirMoveString("^A^^<<A>>AvvvA") << " " << getDirMoveString(getDirMoveString("^A^^<<A>>AvvvA")).size() << std::endl;
-    //auto a = getDirMoveString("<vA");
     part2();
     return 0;
 }
