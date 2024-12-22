@@ -10,6 +10,13 @@
 
 typedef std::pair<int, int> i_pair;
 
+std::unordered_map<char, i_pair> directions{
+    {'>', {0, 1}},
+    {'v', {1, 0}},
+    {'<',  {0, -1}},
+    {'^', {-1, 0}}
+};
+
 std::unordered_map<char, i_pair> numericMap{
     {'A', {3, 2}},
     {'0', {3, 1}},
@@ -32,46 +39,97 @@ std::unordered_map<char, i_pair> directionalMap{
     {'>', {1, 2}}
 };
 
+bool isValidNumMove(const std::string& move, char start) {
+    auto [startI, startJ] = numericMap[start];
+    for (int i = 0; i < move.size(); i++) {
+        if (startI == 3 && startJ == 0) {
+            return false;
+        }
+        auto [di, dj] = directions[move[i]];
+        startI += di;
+        startJ += dj;
+    }
+    return true;
+}
+
+bool isValidDirMove(const std::string& move, char start) {
+    auto [startI, startJ] = directionalMap[start];
+    for (int i = 0; i < move.size(); i++) {
+        if (startI == 0 && startJ == 0) {
+            return false;
+        }
+        auto [di, dj] = directions[move[i]];
+        startI += di;
+        startJ += dj;
+    }
+    return true;
+}
+
 //right up down left
-std::string move(char start, char end, std::unordered_map<char, i_pair> map) {
+std::vector<std::string> move(char start, char end, std::unordered_map<char, i_pair> map) {
     i_pair startPos = map[start];
     i_pair endPos = map[end];
     int di = endPos.first - startPos.first;
     int dj = endPos.second - startPos.second;
 
-    std::string moveString;
+    std::string horizontal;
+    std::string vertical;
     if (dj > 0) {
-        moveString.append(dj, '>');
+        horizontal.append(dj, '>');
     }
     if (di < 0) {
-        moveString.append(-di, '^');
+        vertical.append(-di, '^');
     }
     if (di > 0) {
-        moveString.append(di, 'v');
+        vertical.append(di, 'v');
     }
     if (dj < 0) {
-        moveString.append(-dj, '<');
+        horizontal.append(-dj, '<');
     }
-    return moveString;
+
+    if (di == 0) {
+        return {horizontal};
+    }
+    if (dj == 0) {
+        return {vertical};
+    }
+
+    return {horizontal + vertical, vertical + horizontal};
 }
 
-std::string getNumMoveString(std::string code) {
+std::vector<std::string> getNumMoveString(std::string code) {
     char prev = 'A';
-    std::string moves;
+    std::vector<std::string> moves{""};
     for (char c : code) {
-        moves += move(prev, c, numericMap);
-        moves += 'A';
+        auto nexts = move(prev, c, numericMap);
+        std::vector<std::string> newMoves;
+        for (std::string base : moves) {
+            for (std::string next : nexts) {
+                if (isValidNumMove(next, prev)) {
+                    newMoves.push_back(base + next + "A");
+                }
+            }
+        }
+        moves = newMoves;
         prev = c;
     }
     return moves;
 }
 
-std::string getDirMoveString(std::string dirs) {
+std::vector<std::string> getDirMoveString(std::string dirs) {
     char prev = 'A';
-    std::string moves;
+    std::vector<std::string> moves{""};
     for (char c : dirs) {
-        moves += move(prev, c, directionalMap);
-        moves += 'A';
+        auto nexts = move(prev, c, directionalMap);
+        std::vector<std::string> newMoves;
+        for (std::string base : moves) {
+            for (std::string next : nexts) {
+                if (isValidDirMove(next, prev)) {
+                    newMoves.push_back(base + next + "A");
+                }
+            }
+        }
+        moves = newMoves;
         prev = c;
     }
     return moves;
@@ -79,11 +137,54 @@ std::string getDirMoveString(std::string dirs) {
 
 
 std::string getFinalMoveString(std::string code) {
-    std::string robotCommands1 = getNumMoveString(code);
+    std::vector<std::string> robotCommands1 = getNumMoveString(code);
     //inputs that the first robot must enter (radioactive room)
-    std::string robotCommands2 = getDirMoveString(robotCommands1);
-    //inputs that the second robot must enter (-40 degree room)
-    return getDirMoveString(robotCommands2);//optimal
+    std::vector<std::string> robotCommands2;
+    for (std::string s : robotCommands1) {
+        for (std::string next : getDirMoveString(s)) {
+            robotCommands2.push_back(next);
+        }
+    }
+    std::string minString(100, '.');
+    for (std::string s : robotCommands2) {
+        for (std::string next : getDirMoveString(s)) {
+            if (next.size() < minString.size()) {
+                minString = next;
+            }
+        }
+    }
+    return minString;
+}
+
+std::string getFinalMoveString2(std::string code) {
+    std::vector<std::string> robotCommands1 = getNumMoveString(code);
+    //inputs that the first robot must enter (radioactive room)
+
+    for (int i = 0; i < 2; i++) {
+        std::vector<std::string> nextCommands;
+        for (std::string s : robotCommands1) {
+            for (std::string next : getDirMoveString(s)) {
+                if (nextCommands.empty() || next.size() == nextCommands[0].size()) {
+                    nextCommands.push_back(next);
+                }
+
+                if (next.size() < nextCommands[0].size()) {
+                    nextCommands = {next};
+                }
+            }
+        }
+        robotCommands1 = nextCommands;
+    }
+
+    std::string minString;
+    for (std::string s : robotCommands1) {
+        for (std::string next : getDirMoveString(s)) {
+            if (minString.empty() || next.size() < minString.size()) {
+                minString = next;
+            }
+        }
+    }
+    return minString;
 }
 
 int getNumericPart(std::string code) {
@@ -113,14 +214,21 @@ void part2() {
         std::cerr << "Error: Unable to open the file." << std::endl;
         return;
     }
+
+    std::string nextLine;
+    int total = 0;
+    while (std::getline(inputFile, nextLine)) {
+        total += (getNumericPart(nextLine) * getFinalMoveString2(nextLine).size());
+    }
+    std::cout << total;
 }
 
 
 int main() {
-    std::cout << getFinalMoveString("379A").size() << std::endl;
-    std::cout << getDirMoveString("^A<<^^A>>AvvvA") << " " << getDirMoveString(getDirMoveString("^A<<^^A>>AvvvA")).size() << std::endl;
-    std::cout << getDirMoveString("^A^^<<A>>AvvvA") << " " << getDirMoveString(getDirMoveString("^A^^<<A>>AvvvA")).size() << std::endl;
-
-    //part1();
+    //std::cout << getFinalMoveString("379A").size() << std::endl;
+    //std::cout << getDirMoveString("^A<<^^A>>AvvvA") << " " << getDirMoveString(getDirMoveString("^A<<^^A>>AvvvA")).size() << std::endl;
+    //std::cout << getDirMoveString("^A^^<<A>>AvvvA") << " " << getDirMoveString(getDirMoveString("^A^^<<A>>AvvvA")).size() << std::endl;
+    //auto a = getDirMoveString("<vA");
+    part2();
     return 0;
 }
