@@ -52,8 +52,8 @@ std::string eval(const std::vector<std::string>& expr, std::unordered_map<std::s
     return expr[3];
 }
 
-long long makeOutput(std::unordered_map<std::string, int>& vars) {
-    std::string id = "z00";
+long long makeOutput(std::unordered_map<std::string, int>& vars, std::string prefix) {
+    std::string id = prefix + "00";
     long long result = 0;
     int exp = 0;
     while (vars.find(id) != vars.end()) {
@@ -68,6 +68,75 @@ long long makeOutput(std::unordered_map<std::string, int>& vars) {
     return result;
 }
 
+void printExpr(const std::vector<std::string>& expr) {
+    std::cout << expr[0] << " " << expr[1] << " " << expr[2] << " -> " << expr[3] << std::endl;
+}
+
+void printExprTree(const std::string& result, std::unordered_map<std::string, std::vector<std::string>>& results) {
+    std::queue<std::string> q;
+    q.push(result);
+    while (!q.empty()) {
+        std::string var = q.front();
+        q.pop();
+        if (results.find(var) != results.end()) {
+            auto expr = results[var];
+            printExpr(expr);
+            q.push(expr[0]);
+            q.push(expr[2]);
+        }
+    }
+}
+
+std::string toBinaryString(long long n) {
+    std::string bin;
+    int i = 0;
+    while (i < 64) {
+        char c = '0' + n % 2;
+        bin = c+bin;
+        n = n >> 1;
+        i++;
+    }
+    return bin;
+}
+
+std::string makeId(int n) {
+    if (n >= 10) {
+        return std::to_string(n);
+    }
+    return "0" + std::to_string(n);
+}
+
+std::string locateKey(std::unordered_map<std::string, std::vector<std::string>> exprs, std::string op, std::string var1, std::string var2) {
+    for (auto [k, v] : exprs) {
+        if (v[1] == op && (v[0] == var1 && v[2] == var2) && (v[0] == var2 && v[2] == var1)) {
+            return v[3];
+        }
+    }
+    return "";
+}
+
+std::vector<std::string> validate(std::unordered_map<std::string, std::vector<std::string>> exprs) {
+    int i = 0;
+    std::unordered_map<std::string, std::string> rename;
+
+    while (exprs.find("z" + makeId(i)) != exprs.end()) {
+        if (i == 0) {
+            rename["z00"] = locateKey(exprs, "XOR", "x00", "y00");
+        }
+        if (i == 1) {
+
+        }
+        i++;
+    }
+    
+    return i;
+}
+/*
+void fix(int n, std::pair<std::string, std::string> pair) {
+
+}
+*/
+
 void part1() {
     std::ifstream inputFile("Day24/input.txt");
 
@@ -77,6 +146,7 @@ void part1() {
 
     std::unordered_map<std::string, int> vars;
     std::unordered_map<std::string, std::vector<std::vector<std::string>>> exprs;
+    std::unordered_map<std::string, std::vector<std::string>> results;
 
     std::string nextLine;
     while (std::getline(inputFile, nextLine) && !nextLine.empty()) {
@@ -106,13 +176,14 @@ void part1() {
         todo.pop();
         if (isEvalable(next, vars)) {
             std::string out = eval(next, vars);
+            results[out] = next;
             for (const auto& expr : exprs[out]) {
                 todo.push(expr);
             }
         }
     }
 
-    std::cout << makeOutput(vars) << std::endl;
+    std::cout << makeOutput(vars, "z") << std::endl;
 }
 
 void part2() {
@@ -120,12 +191,53 @@ void part2() {
 
     if (!inputFile.is_open()) {
         std::cerr << "Error: Unable to open the file." << std::endl;
-        return;
     }
+
+    std::unordered_map<std::string, int> vars;
+    std::unordered_map<std::string, std::vector<std::vector<std::string>>> exprs;
+    std::unordered_map<std::string, std::vector<std::string>> results;
+
+    std::string nextLine;
+    while (std::getline(inputFile, nextLine) && !nextLine.empty()) {
+        auto [var, val] = parseVal(nextLine);
+        vars[var] = val;
+    }
+
+    std::queue<std::vector<std::string>> todo;
+    while (std::getline(inputFile, nextLine)) {
+        auto expr = parseOp(nextLine);
+        todo.push(expr);
+        exprs[expr[0]].push_back(expr);
+        exprs[expr[2]].push_back(expr);
+        if (vars.find(expr[0]) == vars.end()) {
+            vars[expr[0]] = -1;
+        }
+        if (vars.find(expr[2]) == vars.end()) {
+            vars[expr[2]] = -1;
+        }
+        if (vars.find(expr[3]) == vars.end()) {
+            vars[expr[3]] = -1;
+        }
+    }
+
+    while (!todo.empty()) {
+        std::vector<std::string> next = todo.front();
+        todo.pop();
+        if (isEvalable(next, vars)) {
+            std::string out = eval(next, vars);
+            results[out] = next;
+            for (const auto& expr : exprs[out]) {
+                todo.push(expr);
+            }
+        }
+    }
+
+    printExprTree("z15", results);
+    std::cout << toBinaryString(makeOutput(vars, "z") ^ (makeOutput(vars, "x") + makeOutput(vars, "y"))) << std::endl;
 }
 
 
 int main() {
-    part1();
+    part2();
     return 0;
 }
