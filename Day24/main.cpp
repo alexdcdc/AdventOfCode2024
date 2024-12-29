@@ -108,11 +108,13 @@ std::string makeId(int n) {
 
 std::string locateKey(std::unordered_map<std::string, std::vector<std::string>> exprs, std::string op, std::string var1, std::string var2) {
     for (auto [k, v] : exprs) {
-        if (v[1] == op && (v[0] == var1 && v[2] == var2) && (v[0] == var2 && v[2] == var1)) {
+        if (v[1] == op && ((v[0] == var1 && v[2] == var2) || (v[0] == var2 && v[2] == var1))) {
             return v[3];
         }
     }
-    return "";
+    std::cerr << var1 << " " << op << " " << var2 << std::endl;
+    exit(-1);
+    //return "";
 }
 
 std::vector<std::string> validate(std::unordered_map<std::string, std::vector<std::string>> exprs) {
@@ -120,16 +122,24 @@ std::vector<std::string> validate(std::unordered_map<std::string, std::vector<st
     std::unordered_map<std::string, std::string> rename;
 
     while (exprs.find("z" + makeId(i)) != exprs.end()) {
+        std::cout << i << std::endl;
         if (i == 0) {
             rename["z00"] = locateKey(exprs, "XOR", "x00", "y00");
+            rename["c00"] = locateKey(exprs, "AND", "x00", "y00");
         }
-        if (i == 1) {
-
+        else {
+            std::string curId = makeId(i);
+            std::string prevId = makeId(i - 1);
+            rename["a" + curId] = locateKey(exprs, "XOR", "x" + curId, "y" + curId);
+            rename["z" + curId] = locateKey(exprs, "XOR", rename["a" + curId], rename["c" + prevId]);
+            rename["b" + curId] = locateKey(exprs, "AND", "x" + curId, "y" + curId);
+            rename["d" + curId] = locateKey(exprs, "AND", rename["a" + curId], rename["c" + prevId]);
+            rename["c" + curId] = locateKey(exprs, "OR", rename["b" + curId], rename["d" + curId]);
         }
         i++;
     }
-    
-    return i;
+    std::cout << i << std::endl;
+    return {};
 }
 /*
 void fix(int n, std::pair<std::string, std::string> pair) {
@@ -232,8 +242,9 @@ void part2() {
         }
     }
 
-    printExprTree("z15", results);
-    std::cout << toBinaryString(makeOutput(vars, "z") ^ (makeOutput(vars, "x") + makeOutput(vars, "y"))) << std::endl;
+    printExprTree("z02", results);
+    validate(results);
+    //std::cout << toBinaryString(makeOutput(vars, "z") ^ (makeOutput(vars, "x") + makeOutput(vars, "y"))) << std::endl;
 }
 
 
