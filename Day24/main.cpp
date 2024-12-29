@@ -138,9 +138,11 @@ std::vector<std::string> validate(std::unordered_map<std::string, std::vector<st
         }
         i++;
     }
+
     std::cout << i << std::endl;
     return {};
 }
+
 /*
 void fix(int n, std::pair<std::string, std::string> pair) {
 
